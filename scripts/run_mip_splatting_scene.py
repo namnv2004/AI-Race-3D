@@ -17,12 +17,13 @@ from scene_parsers import TestCamera, TrainCamera, parse_colmap_train_scene, par
 
 def rotmat_to_qvec(rotation: np.ndarray) -> np.ndarray:
     m = np.asarray(rotation, dtype=np.float64)
+    rxx, ryx, rzx, rxy, ryy, rzy, rxz, ryz, rzz = m.flat
     k = np.array(
         [
-            [m[0, 0] - m[1, 1] - m[2, 2], m[0, 1] + m[1, 0], m[0, 2] + m[2, 0], m[1, 2] - m[2, 1]],
-            [m[0, 1] + m[1, 0], m[1, 1] - m[0, 0] - m[2, 2], m[1, 2] + m[2, 1], m[2, 0] - m[0, 2]],
-            [m[0, 2] + m[2, 0], m[1, 2] + m[2, 1], m[2, 2] - m[0, 0] - m[1, 1], m[0, 1] - m[1, 0]],
-            [m[1, 2] - m[2, 1], m[2, 0] - m[0, 2], m[0, 1] - m[1, 0], m[0, 0] + m[1, 1] + m[2, 2]],
+            [rxx - ryy - rzz, 0.0, 0.0, 0.0],
+            [ryx + rxy, ryy - rxx - rzz, 0.0, 0.0],
+            [rzx + rxz, rzy + ryz, rzz - rxx - ryy, 0.0],
+            [ryz - rzy, rzx - rxz, rxy - ryx, rxx + ryy + rzz],
         ],
         dtype=np.float64,
     ) / 3.0
