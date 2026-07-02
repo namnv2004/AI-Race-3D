@@ -34,12 +34,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Verify submission directory before zipping.")
     parser.add_argument("--split-root", type=Path, default=Path("data/round1/phase1/private_set1"))
     parser.add_argument("--submission-dir", type=Path, default=Path("outputs/submission_round1_nearest"))
+    parser.add_argument("--scenes", nargs="*", default=None, help="Optional scene names to verify.")
     args = parser.parse_args()
 
     errors: list[str] = []
     total_rows = 0
     scene_count = 0
     for scene_dir in sorted(item for item in args.split_root.iterdir() if item.is_dir()):
+        if args.scenes is not None and scene_dir.name not in args.scenes:
+            continue
         test_csv = scene_dir / "test" / "test_poses.csv"
         if not test_csv.exists():
             continue
