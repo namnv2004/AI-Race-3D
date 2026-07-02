@@ -1,0 +1,20 @@
+# Keep the repository focused on reproducible code and configs.
+.venv/
+__pycache__/
+*.py[cod]
+
+# Competition data and generated artifacts are large and should stay local.
+data/
+outputs/
+submissions/
+checkpoints/
+logs/
+workspace/
+
+# External repos should be fetched or documented instead of vendored here.
+third_party/
+
+# Local editor/system files.
+.DS_Store
+*.swp
+*.swo
