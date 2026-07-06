@@ -1,0 +1,62 @@
+/home/micace/Project/AI-3D/.venv/lib/python3.12/site-packages/torchvision/models/_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+/home/micace/Project/AI-3D/.venv/lib/python3.12/site-packages/torchvision/models/_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=AlexNet_Weights.IMAGENET1K_V1`. You can also use `weights=AlexNet_Weights.DEFAULT` to get the most up-to-date weights.
+  warnings.warn(msg)
+/home/micace/Project/AI-3D/scripts/evaluate_public.py:39: UserWarning: The given NumPy array is not writable, and PyTorch does not support non-writable tensors. This means writing to this tensor will result in undefined behavior. You may want to copy the array to protect its data or make it writable before converting it to a tensor. This type of warning will be suppressed for the rest of this program. (Triggered internally at /pytorch/torch/csrc/utils/tensor_numpy.cpp:213.)
+  tensor = torch.from_numpy(image).float().permute(2, 0, 1).unsqueeze(0) / 127.5 - 1.0
+Setting up [LPIPS] perceptual loss: trunk [alex], v[0.1], spatial [off]
+Loading model from: /home/micace/Project/AI-3D/.venv/lib/python3.12/site-packages/lpips/weights/v0.1/alex.pth
+{
+  "scenes": [
+    {
+      "scene": "HCM0181",
+      "count": 60,
+      "missing": [],
+      "psnr": 22.13306798103782,
+      "ssim": 0.7678135754761546,
+      "lpips": 0.13029838353395462,
+      "score": 0.799555399039643
+    },
+    {
+      "scene": "HCM0193",
+      "count": 60,
+      "missing": [],
+      "psnr": 23.43921423598562,
+      "ssim": 0.7651488551861511,
+      "lpips": 0.14442030588785806,
+      "score": 0.8061686765605584
+    },
+    {
+      "scene": "HCM0204",
+      "count": 60,
+      "missing": [],
+      "psnr": 22.35517079263191,
+      "ssim": 0.7696679094456965,
+      "lpips": 0.13640884285171825,
+      "score": 0.7998885436193407
+    },
+    {
+      "scene": "hcm0031",
+      "count": 50,
+      "missing": [],
+      "psnr": 23.114354864251727,
+      "ssim": 0.7559938001849805,
+      "lpips": 0.1402757816016674,
+      "score": 0.8018313760573444
+    },
+    {
+      "scene": "hcm0034",
+      "count": 60,
+      "missing": [],
+      "psnr": 22.794880251976622,
+      "ssim": 0.7854855206521703,
+      "lpips": 0.12405376906196276,
+      "score": 0.8139729510906324
+    }
+  ],
+  "mean_psnr": 22.76733762517674,
+  "mean_ssim": 0.7688219321890306,
+  "mean_lpips": 0.13509141658743223,
+  "mean_score": 0.8042833892735037,
+  "psnr_max": 30.0
+}

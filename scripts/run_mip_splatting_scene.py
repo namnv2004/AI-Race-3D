@@ -1,3 +1,30 @@
+#!/usr/bin/env python3
+"""Train Mip-Splatting on a single scene, render test poses, optionally with milestones.
+
+Driver for the third_party/mip-splatting codebase. Supports:
+- 3D filter + 2D mip filter (anti-aliasing)
+- SAM mask-weighted loss (--mask-dir, --mask-boost)
+- Milestone rendering for tuning (--milestones, --render-milestones)
+- Custom densification schedule (--densify-grad-threshold, --densify-until-iter)
+
+Examples
+--------
+Baseline 10k with proper anti-aliasing:
+    python scripts/run_mip_splatting_scene.py \\
+        --scene-dir data/round1/phase1/public_set/HCM0181 \\
+        --output-dir outputs/mip_10k --iterations 10000 --kernel-size 0.1
+
+Mask-weighted:
+    python scripts/run_mip_splatting_scene.py \\
+        --scene-dir data/round1/phase1/public_set/HCM0181 \\
+        --output-dir outputs/mip_mask_10k --iterations 10000 --kernel-size 0.1 \\
+        --mask-dir workspace/sam3_masks --mask-boost 3 --mask-dilate 1
+
+Tuning with milestones:
+    python scripts/run_mip_splatting_scene.py ... \\
+        --milestones 1000 5000 10000 20000 --render-milestones
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -12,7 +39,29 @@ import numpy as np
 import torch
 from PIL import Image
 
-from scene_parsers import TestCamera, TrainCamera, parse_colmap_train_scene, parse_test_poses_csv
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from var2026_bts.configs.defaults import (  # noqa: E402
+    DEFAULT_LAMBDA_L1,
+    DEFAULT_LAMBDA_LPIPS,
+    DEFAULT_LAMBDA_SSIM,
+    DEFAULT_MASK_BOOST,
+    DEFAULT_MASK_DILATE,
+    DEFAULT_MASK_THRESHOLD,
+    DEFAULT_MIP_DENSIFY_GRAD,
+    DEFAULT_MIP_DENSIFY_INTERVAL,
+    DEFAULT_MIP_DENSIFY_UNTIL,
+    DEFAULT_MIP_ITERATIONS,
+    DEFAULT_MIP_KERNEL_SIZE,
+    DEFAULT_MIP_OPACITY_RESET,
+    DEFAULT_MIP_TRAIN_RESOLUTION,
+    DEFAULT_RENDER_SCALE,
+)
+from var2026_bts.scene_parsers import (  # noqa: E402
+    TestCamera,
+    TrainCamera,
+    parse_colmap_train_scene,
+    parse_test_poses_csv,
+)
 
 
 def rotmat_to_qvec(rotation: np.ndarray) -> np.ndarray:
@@ -142,8 +191,19 @@ def require_mip_dependencies(mip_root: Path) -> None:
         )
 
 
+def resolve_iterations(args: argparse.Namespace) -> list[int]:
+    """Build the union of explicit milestones and the final iteration."""
+    if args.milestones:
+        iterations = [iteration for iteration in args.milestones if 0 < iteration <= args.iterations]
+    else:
+        iterations = [args.save_every, args.iterations]
+    iterations.append(args.iterations)
+    return sorted(set(iterations))
+
+
 def run_train(args: argparse.Namespace, export_dir: Path, model_dir: Path) -> None:
     model_dir.mkdir(parents=True, exist_ok=True)
+    save_iterations = resolve_iterations(args)
     command = [
         sys.executable,
         "train.py",
@@ -157,19 +217,44 @@ def run_train(args: argparse.Namespace, export_dir: Path, model_dir: Path) -> No
         str(args.iterations),
         "--kernel_size",
         str(args.kernel_size),
+        "--lambda_l1",
+        str(args.lambda_l1),
+        "--lambda_ssim",
+        str(args.lambda_ssim),
+        "--lambda_lpips",
+        str(args.lambda_lpips),
+        "--lpips_net",
+        str(args.lpips_net),
+        "--lpips_resize",
+        str(args.lpips_resize),
+        "--mask_path",
+        str(args.mask_dir or ""),
+        "--mask_boost",
+        str(args.mask_boost),
+        "--mask_threshold",
+        str(args.mask_threshold),
+        "--mask_dilate",
+        str(args.mask_dilate),
+        "--densify_grad_threshold",
+        str(args.densify_grad_threshold),
+        "--densify_until_iter",
+        str(args.densify_until_iter),
+        "--densification_interval",
+        str(args.densification_interval),
+        "--opacity_reset_interval",
+        str(args.opacity_reset_interval),
         "--data_device",
         args.data_device,
         "--save_iterations",
-        str(args.save_every),
-        str(args.iterations),
+        *[str(iteration) for iteration in save_iterations],
         "--checkpoint_iterations",
-        str(args.checkpoint_every),
-        str(args.iterations),
+        *[str(iteration) for iteration in save_iterations],
     ]
     if args.quiet:
         command.append("--quiet")
     env = os.environ.copy()
     env["PYTHONPATH"] = str(args.mip_root.resolve()) + os.pathsep + env.get("PYTHONPATH", "")
+    env.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     subprocess.run(command, cwd=args.mip_root, env=env, check=True)
 
 
@@ -193,7 +278,7 @@ def save_render(render_rgb: torch.Tensor, output_path: Path, final_size: tuple[i
         image = image.resize(final_size, Image.Resampling.LANCZOS)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if output_path.suffix.lower() in {".jpg", ".jpeg"}:
-        image.save(output_path, format="JPEG", quality=95, subsampling=1, optimize=True)
+        image.save(output_path, format="JPEG", quality=100, subsampling=0, optimize=True)
     else:
         image.save(output_path, format="PNG", optimize=True)
 
@@ -217,11 +302,11 @@ def make_mip_camera(camera: TestCamera, index: int, data_device: str):
     )
 
 
-def render_test_poses(args: argparse.Namespace, model_dir: Path, scene_dir: Path, output_scene_dir: Path) -> None:
+def render_test_poses(args: argparse.Namespace, model_dir: Path, scene_dir: Path, output_scene_dir: Path, iteration_override: int | None = None) -> None:
     sys.path.insert(0, str(args.mip_root.resolve()))
     from gaussian_renderer import GaussianModel, render
 
-    iteration = args.render_iteration if args.render_iteration > 0 else latest_iteration(model_dir)
+    iteration = iteration_override if iteration_override is not None else args.render_iteration if args.render_iteration > 0 else latest_iteration(model_dir)
     ply_path = model_dir / "point_cloud" / f"iteration_{iteration}" / "point_cloud.ply"
     if not ply_path.exists():
         raise FileNotFoundError(f"Missing trained point cloud: {ply_path}")
@@ -251,10 +336,25 @@ def main() -> None:
     parser.add_argument("--mip-root", type=Path, default=Path("third_party/mip-splatting"))
     parser.add_argument("--workspace-dir", type=Path, default=Path("workspace/mip_splatting_scenes"))
     parser.add_argument("--model-root", type=Path, default=Path("checkpoints/mip_splatting"))
-    parser.add_argument("--iterations", type=int, default=15000)
-    parser.add_argument("--train-resolution", type=int, default=2, help="Mip-Splatting -r value; use 1 for full-res training.")
-    parser.add_argument("--render-scale", type=float, default=1.0, help="Render lower then resize to CSV size if needed.")
-    parser.add_argument("--kernel-size", type=float, default=0.1)
+    parser.add_argument("--iterations", type=int, default=DEFAULT_MIP_ITERATIONS)
+    parser.add_argument("--train-resolution", type=int, default=DEFAULT_MIP_TRAIN_RESOLUTION, help="Mip-Splatting -r value; use 1 for full-res training.")
+    parser.add_argument("--render-scale", type=float, default=DEFAULT_RENDER_SCALE, help="Render lower then resize to CSV size if needed.")
+    parser.add_argument("--kernel-size", type=float, default=DEFAULT_MIP_KERNEL_SIZE)
+    parser.add_argument("--lambda-l1", type=float, default=DEFAULT_LAMBDA_L1, help="L1 loss weight (default 0.8)")
+    parser.add_argument("--lambda-ssim", type=float, default=DEFAULT_LAMBDA_SSIM, help="SSIM loss weight (default 0.2)")
+    parser.add_argument("--lambda-lpips", type=float, default=DEFAULT_LAMBDA_LPIPS, help="LPIPS loss weight (default 0 disables)")
+    parser.add_argument("--lpips-net", default="alex", choices=["alex", "vgg", "squeeze"])
+    parser.add_argument("--lpips-resize", type=int, default=256, help="Resize CHW images to this square size for LPIPS loss; <=0 keeps full size.")
+    parser.add_argument("--mask-dir", type=Path, default=None, help="Per-scene or root directory containing SAM masks named <image_stem>.png.")
+    parser.add_argument("--mask-boost", type=float, default=DEFAULT_MASK_BOOST, help="Additional L1 weight for foreground mask pixels; 0 disables mask weighting.")
+    parser.add_argument("--mask-threshold", type=float, default=DEFAULT_MASK_THRESHOLD)
+    parser.add_argument("--mask-dilate", type=int, default=DEFAULT_MASK_DILATE)
+    parser.add_argument("--densify-grad-threshold", type=float, default=DEFAULT_MIP_DENSIFY_GRAD)
+    parser.add_argument("--densify-until-iter", type=int, default=DEFAULT_MIP_DENSIFY_UNTIL)
+    parser.add_argument("--densification-interval", type=int, default=DEFAULT_MIP_DENSIFY_INTERVAL)
+    parser.add_argument("--opacity-reset-interval", type=int, default=DEFAULT_MIP_OPACITY_RESET)
+    parser.add_argument("--milestones", nargs="*", type=int, default=None, help="Iterations to save/checkpoint and optionally render, e.g. 1000 5000 10000 20000.")
+    parser.add_argument("--render-milestones", action="store_true", help="Render every saved milestone to output-dir/iter_<iteration>/<scene>.")
     parser.add_argument("--save-every", type=int, default=5000)
     parser.add_argument("--checkpoint-every", type=int, default=5000)
     parser.add_argument("--render-iteration", type=int, default=-1)
@@ -289,9 +389,16 @@ def main() -> None:
             shutil.rmtree(model_dir)
         run_train(args, export_dir, model_dir)
     if not args.skip_render:
-        if output_scene_dir.exists() and args.overwrite:
+        if output_scene_dir.exists() and args.overwrite and not args.render_milestones:
             shutil.rmtree(output_scene_dir)
-        render_test_poses(args, model_dir, args.scene_dir, output_scene_dir)
+        if args.render_milestones:
+            for iteration in resolve_iterations(args):
+                milestone_output_scene_dir = args.output_dir / f"iter_{iteration}" / scene_name
+                if milestone_output_scene_dir.exists() and args.overwrite:
+                    shutil.rmtree(milestone_output_scene_dir)
+                render_test_poses(args, model_dir, args.scene_dir, milestone_output_scene_dir, iteration_override=iteration)
+        else:
+            render_test_poses(args, model_dir, args.scene_dir, output_scene_dir)
         print(f"rendered test poses to {output_scene_dir}")
 
 

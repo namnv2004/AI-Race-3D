@@ -1,19 +1,34 @@
+"""Evaluate predicted test images against ground truth using PSNR, SSIM, LPIPS.
+
+Implements the competition scoring formula:
+    Score = 0.4 * (1 - LPIPS) + 0.3 * SSIM + 0.3 * PSNR / 30
+"""
+
 from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import torch
 from PIL import Image
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
-import torch
 
 try:
     import lpips
 except ImportError:  # pragma: no cover
     lpips = None
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from var2026_bts.configs.defaults import (  # noqa: E402
+    PSNR_MAX,
+    SCORE_WEIGHT_LPIPS,
+    SCORE_WEIGHT_PSNR,
+    SCORE_WEIGHT_SSIM,
+)
 
 
 def read_rgb(path: Path) -> np.ndarray:
@@ -31,7 +46,7 @@ def evaluate_scene(
     limit: int = 0,
     lpips_model: torch.nn.Module | None = None,
     lpips_device: str = "cuda",
-    psnr_max: float = 30.0,
+    psnr_max: float = PSNR_MAX,
 ) -> dict[str, object]:
     test_df = pd.read_csv(scene_dir / "test" / "test_poses.csv")
     if limit > 0:
@@ -61,7 +76,13 @@ def evaluate_scene(
         else:
             lpips_value = float("nan")
         psnr_norm = float(np.clip(psnr / psnr_max, 0.0, 1.0))
-        score = 0.4 * (1.0 - lpips_value) + 0.3 * ssim + 0.3 * psnr_norm if not np.isnan(lpips_value) else float("nan")
+        score = (
+            SCORE_WEIGHT_LPIPS * (1.0 - lpips_value)
+            + SCORE_WEIGHT_SSIM * ssim
+            + SCORE_WEIGHT_PSNR * psnr_norm
+            if not np.isnan(lpips_value)
+            else float("nan")
+        )
         psnrs.append(psnr)
         ssims.append(ssim)
         if not np.isnan(lpips_value):
@@ -79,7 +100,7 @@ def evaluate_scene(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate predictions on public_set using PSNR and SSIM.")
+    parser = argparse.ArgumentParser(description="Evaluate predictions on public_set using PSNR, SSIM, LPIPS.")
     parser.add_argument("--public-root", type=Path, default=Path("data/round1/phase1/public_set"))
     parser.add_argument("--pred-dir", type=Path, required=True)
     parser.add_argument("--limit-per-scene", type=int, default=0)
@@ -88,7 +109,7 @@ def main() -> None:
     parser.add_argument("--with-lpips", action="store_true", help="Compute LPIPS and final Score.")
     parser.add_argument("--lpips-net", default="alex", choices=["alex", "vgg", "squeeze"])
     parser.add_argument("--lpips-device", default="cuda")
-    parser.add_argument("--psnr-max", type=float, default=30.0)
+    parser.add_argument("--psnr-max", type=float, default=PSNR_MAX)
     parser.add_argument("--json-out", type=Path, default=None)
     args = parser.parse_args()
 

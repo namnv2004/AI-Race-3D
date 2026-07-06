@@ -1,9 +1,13 @@
+#!/usr/bin/env python3
+"""Generate a nearest-train-view baseline submission."""
+
 from __future__ import annotations
 
 import argparse
 import math
 import re
 import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,8 +17,8 @@ import pycolmap
 from PIL import Image
 from tqdm import tqdm
 
-
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from var2026_bts.scene_parsers import IMAGE_EXTENSIONS, qvec_to_rotmat  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -31,18 +35,6 @@ def normalize(vector: np.ndarray) -> np.ndarray:
     if norm == 0.0:
         return vector
     return vector / norm
-
-
-def qvec_to_rotmat(qvec: np.ndarray) -> np.ndarray:
-    qw, qx, qy, qz = [float(v) for v in qvec]
-    return np.array(
-        [
-            [1.0 - 2.0 * qy * qy - 2.0 * qz * qz, 2.0 * qx * qy - 2.0 * qz * qw, 2.0 * qx * qz + 2.0 * qy * qw],
-            [2.0 * qx * qy + 2.0 * qz * qw, 1.0 - 2.0 * qx * qx - 2.0 * qz * qz, 2.0 * qy * qz - 2.0 * qx * qw],
-            [2.0 * qx * qz - 2.0 * qy * qw, 2.0 * qy * qz + 2.0 * qx * qw, 1.0 - 2.0 * qx * qx - 2.0 * qy * qy],
-        ],
-        dtype=np.float64,
-    )
 
 
 def pose_center_forward(qvec: np.ndarray, tvec: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -130,7 +122,7 @@ def save_resized_rgb(src: Path, dst: Path, width: int, height: int) -> None:
             image = image.resize((width, height), Image.Resampling.LANCZOS)
         suffix = dst.suffix.lower()
         if suffix in {".jpg", ".jpeg"}:
-            image.save(dst, format="JPEG", quality=95, subsampling=1, optimize=True)
+            image.save(dst, format="JPEG", quality=100, subsampling=0, optimize=True)
         else:
             image.save(dst, format="PNG", optimize=True)
 

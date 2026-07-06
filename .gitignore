@@ -1,20 +1,37 @@
-# Keep the repository focused on reproducible code and configs.
+# --- Python / build ---
 .venv/
 __pycache__/
 *.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Competition data and generated artifacts are large and should stay local.
+# --- Data, models, and large artifacts (kept local) ---
 data/
 outputs/
 submissions/
 checkpoints/
 logs/
 workspace/
+models/
+configs/local/
 
-# External repos should be fetched or documented instead of vendored here.
+# --- Vendored / external repos ---
 third_party/
 
-# Local editor/system files.
+# --- CodeGraph index (regenerable) ---
+.codegraph/
+
+# --- Logs & PID files ---
+*.log
+*.pid
+
+# --- Local editor/system files ---
 .DS_Store
 *.swp
 *.swo
+.idea/
+.vscode/

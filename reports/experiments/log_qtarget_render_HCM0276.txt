@@ -1,0 +1,1 @@
+rendered test poses to /home/micace/Project/AI-3D/outputs/private_auto_best_hq_q100_rerender/HCM0276

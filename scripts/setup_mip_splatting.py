@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+"""Clone and install Mip-Splatting CUDA dependencies."""
+
 from __future__ import annotations
 
 import argparse
@@ -11,12 +14,12 @@ def run(command: list[str], cwd: Path | None = None) -> None:
     subprocess.run(command, cwd=cwd, check=True)
 
 
-def clone_repo(repo_url: str, mip_root: Path) -> None:
-    if (mip_root / "train.py").exists():
-        print(f"Mip-Splatting already exists: {mip_root}")
+def clone_repo(repo_url: str, target_root: Path) -> None:
+    if (target_root / "train.py").exists():
+        print(f"Repository already exists: {target_root}")
         return
-    mip_root.parent.mkdir(parents=True, exist_ok=True)
-    run(["git", "clone", repo_url, str(mip_root)])
+    target_root.parent.mkdir(parents=True, exist_ok=True)
+    run(["git", "clone", repo_url, str(target_root)])
 
 
 def patch_simple_knn(mip_root: Path) -> None:

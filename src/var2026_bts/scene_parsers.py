@@ -1,3 +1,5 @@
+"""Scene parsing utilities for COLMAP train data and competition test poses."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,7 +10,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pycolmap
-
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 TEST_POSE_COLUMNS = [

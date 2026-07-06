@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+"""Verify a submission directory against split test_poses.csv files."""
+
 from __future__ import annotations
 
 import argparse

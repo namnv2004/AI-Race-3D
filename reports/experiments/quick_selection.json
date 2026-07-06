@@ -1,0 +1,156 @@
+{
+  "plan": "round1_best_single_method",
+  "eval_dir": "reports/experiments/eval/quick",
+  "selection_rule": "max mean_score over all public scenes; tie-break by lower LPIPS, higher SSIM, higher PSNR",
+  "tie_threshold": 0.003,
+  "best_experiment_id": "3dgs_10k_f2",
+  "best_method": "3dgs",
+  "best": {
+    "experiment_id": "3dgs_10k_f2",
+    "method": "3dgs",
+    "eligible": true,
+    "complete_public": false,
+    "scored_scenes": [
+      "HCM0181",
+      "hcm0031"
+    ],
+    "missing_scenes": [
+      "HCM0193",
+      "HCM0204",
+      "hcm0034"
+    ],
+    "mean_score": 0.679882678096482,
+    "mean_lpips": 0.24421638488769531,
+    "mean_ssim": 0.5991537413873826,
+    "mean_psnr": 19.782310963534517,
+    "eval_json": "reports/experiments/eval/quick/3dgs_10k_f2.json",
+    "args": {
+      "factor": 2,
+      "steps": 10000,
+      "lambda_l1": 0.8,
+      "lambda_ssim": 0.2,
+      "lambda_lpips": 0.0,
+      "seed": 42,
+      "overwrite": true
+    }
+  },
+  "within_tie_threshold": [
+    {
+      "experiment_id": "3dgs_10k_f2",
+      "method": "3dgs",
+      "eligible": true,
+      "complete_public": false,
+      "scored_scenes": [
+        "HCM0181",
+        "hcm0031"
+      ],
+      "missing_scenes": [
+        "HCM0193",
+        "HCM0204",
+        "hcm0034"
+      ],
+      "mean_score": 0.679882678096482,
+      "mean_lpips": 0.24421638488769531,
+      "mean_ssim": 0.5991537413873826,
+      "mean_psnr": 19.782310963534517,
+      "eval_json": "reports/experiments/eval/quick/3dgs_10k_f2.json",
+      "args": {
+        "factor": 2,
+        "steps": 10000,
+        "lambda_l1": 0.8,
+        "lambda_ssim": 0.2,
+        "lambda_lpips": 0.0,
+        "seed": 42,
+        "overwrite": true
+      }
+    }
+  ],
+  "ranking": [
+    {
+      "experiment_id": "3dgs_10k_f2",
+      "method": "3dgs",
+      "eligible": true,
+      "complete_public": false,
+      "scored_scenes": [
+        "HCM0181",
+        "hcm0031"
+      ],
+      "missing_scenes": [
+        "HCM0193",
+        "HCM0204",
+        "hcm0034"
+      ],
+      "mean_score": 0.679882678096482,
+      "mean_lpips": 0.24421638488769531,
+      "mean_ssim": 0.5991537413873826,
+      "mean_psnr": 19.782310963534517,
+      "eval_json": "reports/experiments/eval/quick/3dgs_10k_f2.json",
+      "args": {
+        "factor": 2,
+        "steps": 10000,
+        "lambda_l1": 0.8,
+        "lambda_ssim": 0.2,
+        "lambda_lpips": 0.0,
+        "seed": 42,
+        "overwrite": true
+      }
+    },
+    {
+      "experiment_id": "mip_10k_r4_k01",
+      "method": "mip",
+      "eligible": true,
+      "complete_public": false,
+      "scored_scenes": [
+        "HCM0181",
+        "hcm0031"
+      ],
+      "missing_scenes": [
+        "HCM0193",
+        "HCM0204",
+        "hcm0034"
+      ],
+      "mean_score": 0.6182348331717544,
+      "mean_lpips": 0.4469627018769582,
+      "mean_ssim": 0.6117235535401722,
+      "mean_psnr": 21.35028478604862,
+      "eval_json": "reports/experiments/eval/quick/mip_10k_r4_k01.json",
+      "args": {
+        "iterations": 10000,
+        "train_resolution": 4,
+        "kernel_size": 0.1,
+        "lambda_l1": 0.8,
+        "lambda_ssim": 0.2,
+        "lambda_lpips": 0.0,
+        "overwrite": true
+      }
+    },
+    {
+      "experiment_id": "2dgs_10k_default",
+      "method": "2dgs",
+      "eligible": false,
+      "complete_public": false,
+      "scored_scenes": [],
+      "missing_scenes": [
+        "HCM0181",
+        "HCM0193",
+        "HCM0204",
+        "hcm0031",
+        "hcm0034"
+      ],
+      "mean_score": null,
+      "mean_lpips": null,
+      "mean_ssim": null,
+      "mean_psnr": null,
+      "eval_json": "reports/experiments/eval/quick/2dgs_10k_default.json",
+      "args": {
+        "iterations": 10000,
+        "resolution": -1,
+        "lambda_dssim": 0.2,
+        "lambda_dist": 0.0,
+        "lambda_normal": 0.05,
+        "overwrite": true
+      }
+    }
+  ],
+  "next_command": "python scripts/generate_experiment_commands.py --config configs/best_single_method_plan.json --selected-experiment 3dgs_10k_f2"
+}

@@ -1,3 +1,23 @@
+#!/usr/bin/env python3
+"""Train a 3D Gaussian Splatting (gsplat) scene from COLMAP data with mask-weighted loss.
+
+This is the primary baseline used for submission. Supports:
+- Standard L1 + SSIM loss (default)
+- SAM mask-weighted L1 loss (set --mask-dir and --mask-boost)
+- LPIPS loss (optional, off by default for stability)
+
+Examples
+--------
+Baseline (competition-stable):
+    python scripts/train_gs_scene.py --scene-dir data/round1/phase1/public_set/HCM0181 \\
+        --output-dir outputs/gs_10k --factor 2 --steps 10000
+
+Mask-weighted (boost foreground BTS/tower region):
+    python scripts/train_gs_scene.py --scene-dir data/round1/phase1/public_set/HCM0181 \\
+        --output-dir outputs/gs_mask_10k --factor 2 --steps 10000 \\
+        --mask-dir workspace/sam3_masks --mask-boost 3 --mask-dilate 1
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -5,19 +25,60 @@ import json
 import math
 import random
 import shutil
+import sys
 from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn.functional as F
+from gsplat.rendering import rasterization
+from gsplat.strategy import DefaultStrategy
 from PIL import Image
 from sklearn.neighbors import NearestNeighbors
 from tqdm import tqdm
 
-from gsplat.rendering import rasterization
-from gsplat.strategy import DefaultStrategy
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from var2026_bts.configs.defaults import (  # noqa: E402
+    DEFAULT_GS_FACTOR,
+    DEFAULT_GS_INIT_OPACITY,
+    DEFAULT_GS_INIT_SCALE,
+    DEFAULT_GS_MAX_INIT_POINTS,
+    DEFAULT_GS_REFINE_EVERY,
+    DEFAULT_GS_REFINE_START,
+    DEFAULT_GS_REFINE_STOP,
+    DEFAULT_GS_RESET_EVERY,
+    DEFAULT_GS_STEPS,
+    DEFAULT_LAMBDA_L1,
+    DEFAULT_LAMBDA_LPIPS,
+    DEFAULT_LAMBDA_SSIM,
+    DEFAULT_MASK_BOOST,
+    DEFAULT_MASK_DILATE,
+    DEFAULT_MASK_THRESHOLD,
+    DEFAULT_RENDER_SCALE,
+)
+from var2026_bts.mask_utils import load_mask, resolve_mask_path, weighted_l1_loss_map  # noqa: E402
+from var2026_bts.scene_parsers import (  # noqa: E402
+    TrainCamera,
+    parse_colmap_train_scene,
+    parse_test_poses_csv,
+)
 
-from scene_parsers import TrainCamera, parse_colmap_train_scene, parse_test_poses_csv
+
+def _init_lpips(net: str = "alex"):
+    import lpips
+    model = lpips.LPIPS(net=net).eval().cuda()
+    for param in model.parameters():
+        param.requires_grad_(False)
+    return model
+
+
+def _lpips_inputs(pred_nhwc: torch.Tensor, target_nhwc: torch.Tensor, resize: int) -> tuple[torch.Tensor, torch.Tensor]:
+    pred = pred_nhwc.permute(0, 3, 1, 2)
+    target = target_nhwc.permute(0, 3, 1, 2)
+    if resize > 0:
+        pred = F.interpolate(pred, size=(resize, resize), mode="bilinear", align_corners=False)
+        target = F.interpolate(target, size=(resize, resize), mode="bilinear", align_corners=False)
+    return pred * 2.0 - 1.0, target * 2.0 - 1.0
 
 
 def seed_everything(seed: int) -> None:
@@ -107,10 +168,25 @@ def train(
     views: list[TrainCamera],
     points: np.ndarray,
     colors: np.ndarray,
+    scene_dir: Path,
     args: argparse.Namespace,
+    lpips_fn=None,
 ) -> torch.nn.ParameterDict:
     device = args.device
     images = [torch.from_numpy(resize_rgb(view.image_path, view.width, view.height)).float() / 255.0 for view in tqdm(views, desc="Loading train images")]
+    mask_root = args.mask_dir if args.mask_dir is not None else None
+    masks = [
+        torch.from_numpy(
+            load_mask(
+                resolve_mask_path(mask_root, scene_dir.name, view.image_path),
+                view.width,
+                view.height,
+                args.mask_threshold,
+                args.mask_dilate,
+            )
+        )
+        for view in tqdm(views, desc="Loading train masks")
+    ]
     w2cs = torch.from_numpy(np.stack([view.w2c for view in views]).astype(np.float32)).to(device)
     Ks = torch.from_numpy(np.stack([view.K for view in views]).astype(np.float32)).to(device)
     widths = [view.width for view in views]
@@ -135,6 +211,7 @@ def train(
     for step in progress:
         idx = random.randrange(len(views))
         target = images[idx].to(device, non_blocking=True).unsqueeze(0)
+        foreground_mask = masks[idx].to(device, non_blocking=True).unsqueeze(0) if args.mask_boost > 0 else None
         render, _, info = rasterization(
             means=splats["means"],
             quats=splats["quats"],
@@ -150,8 +227,13 @@ def train(
             rasterize_mode="classic",
         )
         pred = torch.clamp(render[..., :3], 0.0, 1.0)
-        l1 = F.l1_loss(pred, target)
-        loss = (1.0 - args.ssim_lambda) * l1 + args.ssim_lambda * ssim_loss(pred, target)
+        l1 = weighted_l1_loss_map(pred, target, foreground_mask, args.mask_boost)
+        ssim_val = ssim_loss(pred, target)
+        loss = args.lambda_l1 * l1 + args.lambda_ssim * ssim_val
+        if lpips_fn is not None and args.lambda_lpips > 0:
+            lpips_pred, lpips_target = _lpips_inputs(pred, target, args.lpips_resize)
+            lpips_val = lpips_fn(lpips_pred, lpips_target).mean()
+            loss = loss + args.lambda_lpips * lpips_val
         strategy.step_pre_backward(splats, optimizers, strategy_state, step, info)
         loss.backward()
         for optimizer in optimizers.values():
@@ -159,6 +241,10 @@ def train(
             optimizer.zero_grad(set_to_none=True)
         scheduler.step()
         strategy.step_post_backward(splats, optimizers, strategy_state, step, info, packed=False)
+        iteration = step + 1
+        if iteration in args.milestones:
+            render_targets(scene_dir, splats, args.output_dir / f"iter_{iteration}", args)
+            torch.cuda.empty_cache()
         if step % 50 == 0:
             progress.set_postfix(loss=f"{loss.item():.4f}", n=len(splats["means"]))
     return splats
@@ -192,7 +278,7 @@ def render_targets(scene_dir: Path, splats: torch.nn.ParameterDict, output_root:
             image = image.resize((camera.width, camera.height), Image.Resampling.LANCZOS)
         out_path = scene_out / camera.image_name
         if out_path.suffix.lower() in {".jpg", ".jpeg"}:
-            image.save(out_path, format="JPEG", quality=95, subsampling=1, optimize=True)
+            image.save(out_path, format="JPEG", quality=100, subsampling=0, optimize=True)
         else:
             image.save(out_path, format="PNG", optimize=True)
 
@@ -201,17 +287,26 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Train a minimal 3DGS scene from COLMAP and render test poses.")
     parser.add_argument("--scene-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--factor", type=int, default=2)
-    parser.add_argument("--steps", type=int, default=3000)
-    parser.add_argument("--max-init-points", type=int, default=200000)
-    parser.add_argument("--init-opacity", type=float, default=0.1)
-    parser.add_argument("--init-scale", type=float, default=1.0)
-    parser.add_argument("--ssim-lambda", type=float, default=0.2)
-    parser.add_argument("--refine-start", type=int, default=500)
-    parser.add_argument("--refine-stop", type=int, default=2500)
-    parser.add_argument("--refine-every", type=int, default=100)
-    parser.add_argument("--reset-every", type=int, default=1500)
-    parser.add_argument("--render-scale", type=float, default=1.0)
+    parser.add_argument("--factor", type=int, default=DEFAULT_GS_FACTOR)
+    parser.add_argument("--steps", type=int, default=DEFAULT_GS_STEPS)
+    parser.add_argument("--max-init-points", type=int, default=DEFAULT_GS_MAX_INIT_POINTS)
+    parser.add_argument("--init-opacity", type=float, default=DEFAULT_GS_INIT_OPACITY)
+    parser.add_argument("--init-scale", type=float, default=DEFAULT_GS_INIT_SCALE)
+    parser.add_argument("--lambda-l1", type=float, default=DEFAULT_LAMBDA_L1)
+    parser.add_argument("--lambda-ssim", type=float, default=DEFAULT_LAMBDA_SSIM)
+    parser.add_argument("--lambda-lpips", type=float, default=DEFAULT_LAMBDA_LPIPS)
+    parser.add_argument("--lpips-net", default="alex", choices=["alex", "vgg", "squeeze"])
+    parser.add_argument("--lpips-resize", type=int, default=256)
+    parser.add_argument("--mask-dir", type=Path, default=None, help="Per-scene or root directory containing SAM masks named <image_stem>.png.")
+    parser.add_argument("--mask-boost", type=float, default=DEFAULT_MASK_BOOST, help="Additional L1 weight for foreground mask pixels; 0 disables mask weighting.")
+    parser.add_argument("--mask-threshold", type=float, default=DEFAULT_MASK_THRESHOLD)
+    parser.add_argument("--mask-dilate", type=int, default=DEFAULT_MASK_DILATE)
+    parser.add_argument("--milestones", nargs="*", type=int, default=[])
+    parser.add_argument("--refine-start", type=int, default=DEFAULT_GS_REFINE_START)
+    parser.add_argument("--refine-stop", type=int, default=DEFAULT_GS_REFINE_STOP)
+    parser.add_argument("--refine-every", type=int, default=DEFAULT_GS_REFINE_EVERY)
+    parser.add_argument("--reset-every", type=int, default=DEFAULT_GS_RESET_EVERY)
+    parser.add_argument("--render-scale", type=float, default=DEFAULT_RENDER_SCALE)
     parser.add_argument("--max-targets", type=int, default=0)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--seed", type=int, default=42)
@@ -223,7 +318,9 @@ def main() -> None:
         shutil.rmtree(args.output_dir / args.scene_dir.name)
     views, points, colors = parse_colmap_train_scene(args.scene_dir, args.factor)
     print(f"scene={args.scene_dir.name} train_views={len(views)} sparse_points={len(points)} factor={args.factor}")
-    splats = train(views, points, colors, args)
+    lpips_fn = _init_lpips(args.lpips_net) if args.lambda_lpips > 0 else None
+    args.milestones = sorted(set(iteration for iteration in args.milestones if 0 < iteration <= args.steps))
+    splats = train(views, points, colors, args.scene_dir, args, lpips_fn=lpips_fn)
     render_targets(args.scene_dir, splats, args.output_dir, args)
     stats = {"scene": args.scene_dir.name, "train_views": len(views), "gaussians": int(len(splats["means"]))}
     args.output_dir.mkdir(parents=True, exist_ok=True)

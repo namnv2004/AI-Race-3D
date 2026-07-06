@@ -1,13 +1,17 @@
+#!/usr/bin/env python3
+"""Inspect the competition dataset layout and write a JSON summary."""
+
 from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import pandas as pd
 
-
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from var2026_bts.scene_parsers import IMAGE_EXTENSIONS  # noqa: E402
 
 
 def count_images(path: Path) -> int:

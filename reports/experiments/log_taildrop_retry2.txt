@@ -1,0 +1,3 @@
+2026/07/06 00:16:23 sending "submission_auto_best_hq.zip" to ironcat/100.82.216.96/nJxY9HHukP11CNTRL ...
+2026/07/06 00:27:00 sent "submission_auto_best_hq.zip"
+EXIT_CODE=0

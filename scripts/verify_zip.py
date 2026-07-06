@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+"""Extract and verify a submission ZIP file."""
+
 from __future__ import annotations
 
 import argparse
