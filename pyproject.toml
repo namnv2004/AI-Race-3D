@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "var-2026-bts"
+name = "ai-race-3d"
 version = "0.1.0"
-description = "VAR 2026 Digital Twin for BTS — Novel View Synthesis pipeline"
+description = "AI Race 3D novel view synthesis pipeline"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -43,15 +43,18 @@ dev = [
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["var2026_bts*"]
+py-modules = ["config_defaults", "mask_utils", "scene_parsers"]
+packages = ["method_runners"]
 
 [tool.ruff]
 line-length = 110
 target-version = "py310"
+extend-exclude = ["third_party"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP"]
 ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "src"]

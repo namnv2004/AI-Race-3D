@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "description": "Reproducible third_party registry for Gaussian Splatting / novel view synthesis experiments. Revisions are verified upstream HEADs as of 2026-07-07.",
+  "repos": [
+    {
+      "id": "mip-splatting",
+      "name": "Mip-Splatting",
+      "url": "https://github.com/autonomousvision/mip-splatting.git",
+      "branch": "main",
+      "revision": "dda02ab5ecf45d6edb8c540d9bb65c7e451345a9",
+      "path": "third_party/mip-splatting",
+      "groups": ["pipeline", "sota"],
+      "support_level": "pipeline",
+      "submodules": true,
+      "patch_simple_knn": true,
+      "install_paths": [
+        "submodules/diff-gaussian-rasterization",
+        "submodules/simple-knn"
+      ],
+      "notes": "Anti-aliased 3DGS variant used by src/method_runners/run_mip_splatting_scene.py. Strong default for high-resolution drone imagery."
+    },
+    {
+      "id": "2d-gaussian-splatting",
+      "name": "2D Gaussian Splatting",
+      "url": "https://github.com/hbb1/2d-gaussian-splatting.git",
+      "branch": "main",
+      "revision": "335ad612f2e783a4e57b9cbc4d1e167bd599fc98",
+      "path": "third_party/2d-gaussian-splatting",
+      "groups": ["pipeline", "sota"],
+      "support_level": "pipeline",
+      "submodules": true,
+      "patch_simple_knn": true,
+      "install_paths": [
+        "submodules/diff-surfel-rasterization",
+        "submodules/simple-knn"
+      ],
+      "notes": "Surface-oriented Gaussian method used by src/method_runners/run_2dgs_scene.py; useful for thin BTS/tower structure detail."
+    },
+    {
+      "id": "gaussian-splatting",
+      "name": "Official 3D Gaussian Splatting",
+      "url": "https://github.com/graphdeco-inria/gaussian-splatting.git",
+      "branch": "main",
+      "revision": "54c035f7834b564019656c3e3fcc3646292f727d",
+      "path": "third_party/gaussian-splatting",
+      "groups": ["reference", "sota"],
+      "support_level": "reference",
+      "submodules": true,
+      "recursive_submodules": false,
+      "submodule_paths": [
+        "submodules/diff-gaussian-rasterization",
+        "submodules/fused-ssim",
+        "submodules/simple-knn"
+      ],
+      "patch_simple_knn": true,
+      "notes": "Official 3DGS reference implementation. This repo currently uses the gsplat package for its supported 3DGS baseline to avoid CUDA extension conflicts."
+    },
+    {
+      "id": "scaffold-gs",
+      "name": "Scaffold-GS",
+      "url": "https://github.com/city-super/Scaffold-GS.git",
+      "branch": "main",
+      "revision": "59c833b56bbbf510f3f64d40f81721995caced66",
+      "path": "third_party/Scaffold-GS",
+      "groups": ["research", "sota"],
+      "support_level": "research",
+      "submodules": false,
+      "notes": "Anchor/scaffold based Gaussian representation; candidate for quality-speed-memory tradeoffs. Requires a wrapper before benchmark automation can call it."
+    },
+    {
+      "id": "octree-gs",
+      "name": "Octree-GS",
+      "url": "https://github.com/city-super/Octree-GS.git",
+      "branch": "main",
+      "revision": "9db64fe8981f5d6a1002c41cbc275a14f4d5ea0c",
+      "path": "third_party/Octree-GS",
+      "groups": ["research", "sota"],
+      "support_level": "research",
+      "submodules": false,
+      "notes": "LOD/octree Gaussian variant for scalable rendering. Requires wrapper and memory profiling for this competition format."
+    },
+    {
+      "id": "hierarchical-3d-gaussians",
+      "name": "Hierarchical 3D Gaussians",
+      "url": "https://github.com/graphdeco-inria/hierarchical-3d-gaussians.git",
+      "branch": "main",
+      "revision": "596dc7081ee74e57a66502f4746328911f763b34",
+      "path": "third_party/hierarchical-3d-gaussians",
+      "groups": ["research", "sota"],
+      "support_level": "research",
+      "submodules": false,
+      "notes": "Official-group hierarchical 3DGS for larger scenes. Candidate if public/private scenes become memory or scale limited."
+    },
+    {
+      "id": "gaussian-opacity-fields",
+      "name": "Gaussian Opacity Fields",
+      "url": "https://github.com/autonomousvision/gaussian-opacity-fields.git",
+      "branch": "main",
+      "revision": "5245b20e5d11acd6d1ff5af4b890dc2bedd99693",
+      "path": "third_party/gaussian-opacity-fields",
+      "groups": ["research", "sota"],
+      "support_level": "research",
+      "submodules": false,
+      "notes": "Geometry/surface-oriented Gaussian method. Potentially relevant for tower structure consistency, but not wired into this pipeline yet."
+    },
+    {
+      "id": "sugar",
+      "name": "SuGaR",
+      "url": "https://github.com/Anttwo/SuGaR.git",
+      "branch": "main",
+      "revision": "7c10c4ae4a267dece512f5c7f40ed212a0a2ab44",
+      "path": "third_party/SuGaR",
+      "groups": ["research", "sota"],
+      "support_level": "research",
+      "submodules": false,
+      "notes": "Surface-aligned Gaussian refinement/extraction. More useful for geometry quality than direct leaderboard rendering unless a wrapper is added."
+    },
+    {
+      "id": "3dgs-mcmc",
+      "name": "3DGS-MCMC",
+      "url": "https://github.com/ubc-vision/3dgs-mcmc.git",
+      "branch": "main",
+      "revision": "7b4fc9f76a1c7b775f69603cb96e70f80c7e6d13",
+      "path": "third_party/3dgs-mcmc",
+      "groups": ["research", "sota"],
+      "support_level": "research",
+      "submodules": false,
+      "notes": "MCMC-based densification/training variant. Candidate for better optimization under constrained iteration budgets."
+    },
+    {
+      "id": "gaussian-splatting-lightning",
+      "name": "Gaussian Splatting Lightning",
+      "url": "https://github.com/yzslab/gaussian-splatting-lightning.git",
+      "branch": "main",
+      "revision": "ebc2e44886725a5270ff931fd029de6d541ce694",
+      "path": "third_party/gaussian-splatting-lightning",
+      "groups": ["research", "sota", "toolkit"],
+      "support_level": "research",
+      "submodules": false,
+      "notes": "PyTorch Lightning framework that aggregates multiple 3DGS variants; useful as an experimentation harness, not currently wrapped."
+    },
+    {
+      "id": "gsplat",
+      "name": "gsplat",
+      "url": "https://github.com/nerfstudio-project/gsplat.git",
+      "branch": "main",
+      "revision": "8b6319f8335df7de18d4514feb90b60e3941a073",
+      "path": "third_party/gsplat",
+      "groups": ["reference", "toolkit"],
+      "support_level": "package",
+      "submodules": false,
+      "notes": "Source for the gsplat package used by src/method_runners/run_3dgs_scene.py. Normal install remains pip package from pyproject.toml."
+    }
+  ]
+}

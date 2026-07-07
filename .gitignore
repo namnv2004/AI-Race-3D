@@ -1,5 +1,7 @@
 # --- Python / build ---
 .venv/
+venv/
+env/
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -8,6 +10,20 @@ dist/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.cache/
+.ipynb_checkpoints/
+.coverage
+htmlcov/
+
+# --- Local environment / secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
 
 # --- Data, models, and large artifacts (kept local) ---
 data/
@@ -16,8 +32,24 @@ submissions/
 checkpoints/
 logs/
 workspace/
+masks/
 models/
 configs/local/
+reports/**/*.log
+reports/**/*.pid
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.ply
+*.npy
+*.npz
 
 # --- Vendored / external repos ---
 third_party/
@@ -25,9 +57,14 @@ third_party/
 # --- CodeGraph index (regenerable) ---
 .codegraph/
 
+# --- Local agent skills ---
+.skills/
+
 # --- Logs & PID files ---
 *.log
 *.pid
+*.tmp
+*.bak
 
 # --- Local editor/system files ---
 .DS_Store

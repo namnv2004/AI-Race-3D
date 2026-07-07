@@ -1,1 +1,0 @@
-VERIFY PASSED: 8 scenes, 434 images, all files present and sizes match CSV.

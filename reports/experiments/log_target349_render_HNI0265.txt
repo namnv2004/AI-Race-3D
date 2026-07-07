@@ -1,1 +1,0 @@
-rendered test poses to /home/micace/Project/AI-3D/outputs/private_auto_best_hq_target349/HNI0265

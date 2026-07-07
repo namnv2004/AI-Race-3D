@@ -1,0 +1,88 @@
+{
+  "schema_version": 3,
+  "plan": "gs_runs",
+  "description": "Reusable manifest for smoke, public benchmark, and private render runs. One run id maps to outputs/smoke/<run_id>, outputs/public/<run_id>, and outputs/private/<run_id>.",
+  "python": "python",
+  "roots": {
+    "public": "data/round1/phase1/public_set",
+    "private": "data/round1/phase1/private_set1",
+    "outputs": "outputs",
+    "checkpoints": "checkpoints/experiments",
+    "workspace": "workspace/experiments",
+    "reports": "reports/experiments",
+    "submissions": "submissions",
+    "masks": "masks"
+  },
+  "scenes": {
+    "smoke": ["HCM0181"],
+    "public": ["HCM0181", "HCM0193", "HCM0204", "hcm0031", "hcm0034"],
+    "private": ["HCM0249", "HCM0254", "HCM0276", "HCM1439", "HNI0131", "HNI0265", "HNI0366", "HNI0437"]
+  },
+  "outputs": {
+    "smoke": "outputs/smoke/{run_id}",
+    "public": "outputs/public/{run_id}",
+    "private": "outputs/private/{run_id}"
+  },
+  "artifacts": {
+    "model_root": "checkpoints/experiments/{phase}/{run_id}",
+    "mip_workspace": "workspace/experiments/mip_splatting/{phase}/{run_id}",
+    "eval_json": "reports/experiments/eval/public/{run_id}.json",
+    "selection_dir": "reports/experiments/selections",
+    "submission_zip": "submissions/submission_{run_id}.zip"
+  },
+  "rules": [
+    "Smoke is exactly one public scene and is only for error checks.",
+    "Public runs must render all public scenes before ranking.",
+    "Private renders stay under outputs/private/<run_id>.",
+    "Only a verified private output folder may be zipped into submissions/."
+  ],
+  "eval": {
+    "with_lpips": true,
+    "lpips_net": "alex",
+    "lpips_device": "cuda"
+  },
+  "runs": [
+    {
+      "id": "3dgs_f2_10k",
+      "method": "3dgs",
+      "active": true,
+      "description": "Fast gsplat baseline.",
+      "args": {"factor": 2, "steps": 10000, "lambda_l1": 0.8, "lambda_ssim": 0.2, "lambda_lpips": 0.0, "seed": 42, "overwrite": true}
+    },
+    {
+      "id": "3dgs_f2_30k",
+      "method": "3dgs",
+      "active": true,
+      "description": "Longer gsplat baseline at factor 2.",
+      "args": {"factor": 2, "steps": 30000, "lambda_l1": 0.8, "lambda_ssim": 0.2, "lambda_lpips": 0.0, "seed": 42, "overwrite": true}
+    },
+    {
+      "id": "mip_r2_k01_30k",
+      "method": "mip",
+      "active": true,
+      "description": "Mip-Splatting candidate with train resolution 2 and kernel 0.1.",
+      "args": {"iterations": 30000, "train_resolution": 2, "kernel_size": 0.1, "lambda_l1": 0.8, "lambda_ssim": 0.2, "lambda_lpips": 0.0, "overwrite": true}
+    },
+    {
+      "id": "mip_r4_k01_30k",
+      "method": "mip",
+      "active": true,
+      "description": "Mip-Splatting candidate with train resolution 4 and kernel 0.1.",
+      "args": {"iterations": 30000, "train_resolution": 4, "kernel_size": 0.1, "lambda_l1": 0.8, "lambda_ssim": 0.2, "lambda_lpips": 0.0, "overwrite": true}
+    },
+    {
+      "id": "2dgs_default_30k",
+      "method": "2dgs",
+      "active": true,
+      "description": "2D Gaussian Splatting default HQ candidate.",
+      "args": {"iterations": 30000, "resolution": -1, "lambda_dssim": 0.2, "lambda_dist": 0.0, "lambda_normal": 0.05, "overwrite": true}
+    },
+    {
+      "id": "2dgs_normal001_dist10_30k",
+      "method": "2dgs",
+      "active": true,
+      "description": "2DGS variant with lower normal weight and distortion regularization.",
+      "args": {"iterations": 30000, "resolution": -1, "lambda_dssim": 0.2, "lambda_dist": 10.0, "lambda_normal": 0.01, "overwrite": true}
+    }
+  ]
+}

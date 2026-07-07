@@ -1,1 +1,0 @@
-rendered test poses to outputs/private_auto_best_hq/HCM1439

@@ -1,185 +1,155 @@
-# VAR 2026 — Digital Twin for BTS
+# AI Race 3D - Digital Twin BTS
 
-Novel view synthesis pipeline for BTS (Base Transceiver Station) tower scenes.
-Trains 3D Gaussian Splatting models from COLMAP-reconstructed drone footage and
-renders novel views at requested test poses.
+Pipeline Novel View Synthesis cho bài toán tái dựng Digital Twin trạm BTS từ ảnh drone/COLMAP và sinh ảnh RGB ở các góc nhìn mới.
 
-## Layout
+## Cấu Trúc Repo
 
-```
+```text
 .
-├── src/var2026_bts/           # Library package (importable)
-│   ├── scene_parsers.py       # COLMAP + test_poses.csv parsing
-│   ├── mask_utils.py          # SAM mask loading + weighted L1
-│   └── configs/
-│       └── defaults.py        # Hyperparameter defaults
-├── scripts/                   # Executable entry points
-│   ├── train_gs_scene.py      # Train gsplat (baseline)
-│   ├── run_mip_splatting_scene.py
-│   ├── run_2dgs_scene.py
-│   ├── generate_sam3_masks.py
-│   ├── evaluate_public.py
-│   ├── inspect_dataset.py
-│   ├── verify_submission.py
-│   ├── verify_zip.py
-│   ├── generate_submission_nearest.py
-│   ├── setup_mip_splatting.py
-│   └── setup_2dgs.py
-├── third_party/               # Vendored codebases (gitignored)
-│   ├── mip-splatting/
-│   └── 2d-gaussian-splatting/
-├── data/                      # COLMAP + test_poses.csv (gitignored)
-├── workspace/                 # Intermediate exports, SAM masks (gitignored)
-├── checkpoints/               # Trained model checkpoints (gitignored)
-├── outputs/                   # Rendered test images (gitignored)
-├── submissions/               # Final ZIP files (gitignored)
-├── logs/                      # Training/eval logs (gitignored)
-├── models/                    # Downloaded HF model cache (gitignored)
-├── configs/                   # Optional user-supplied config presets
-├── pyproject.toml
-└── README.md
+├── src/                 # Module dùng chung và method runners
+├── configs/             # Defaults, manifest, experiment configs
+├── runs/                # Generated workflow shell commands
+├── eval/                # Public evaluation
+├── verify/              # Submission validation
+├── utils/               # Inspect dataset, generate masks/commands, zip helpers
+├── data/                # Dataset local, gitignored
+├── outputs/             # Render outputs, gitignored
+├── submissions/         # Submission zips, gitignored
+├── checkpoints/         # Model checkpoints, gitignored
+├── workspace/           # Intermediate artifacts, gitignored
+└── third_party/         # External repos, gitignored
 ```
 
 ## Setup
 
 ```bash
-# 1. Create venv
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -U pip
-
-# 2. Install runtime deps from pyproject.toml
 pip install -e ".[dev]"
-
-# 3. Install Mip-Splatting CUDA extensions
-python scripts/setup_mip_splatting.py
-
-# 4. (Optional) Install 2DGS CUDA extensions
-python scripts/setup_2dgs.py
 ```
 
-## Pipeline
+`third_party/` được quản lý bằng quy trình setup local hiện có của bạn.
 
-### 1. Inspect dataset
-```bash
-python scripts/inspect_dataset.py --json-out reports/dataset.json
-```
+## Lệnh Chính
 
-### 2. (Optional) Generate SAM masks for mask-weighted training
 ```bash
-export HF_TOKEN=...     # only if model is gated
-python scripts/generate_sam3_masks.py \\
-    --split-root data/round1/phase1/public_set \\
-    --output-dir workspace/sam3_masks
-```
+# Inspect dataset
+python utils/inspect_dataset.py --json-out reports/dataset.json
 
-### 3. Train — baseline (3DGS / gsplat, 10k iterations)
-```bash
-python scripts/train_gs_scene.py \\
-    --scene-dir data/round1/phase1/public_set/HCM0181 \\
-    --output-dir outputs/gs_10k --factor 2 --steps 10000
-```
+# Generate SAM masks
+python utils/generate_sam3_masks.py \
+    --split-root data/round1/phase1/public_set \
+    --output-dir masks
 
-### 4. Train — Mip-Splatting (anti-aliasing, 10k iterations)
-```bash
-python scripts/run_mip_splatting_scene.py \\
-    --scene-dir data/round1/phase1/public_set/HCM0181 \\
-    --output-dir outputs/mip_10k --iterations 10000 --kernel-size 0.1
-```
+# Train/render 3DGS
+python src/method_runners/run_3dgs_scene.py \
+    --scene-dir data/round1/phase1/public_set/HCM0181 \
+    --output-dir outputs/smoke/3dgs_f2_10k --factor 2 --steps 10000
 
-### 5. Train — 2DGS (thin structures, 10k iterations)
-```bash
-python scripts/run_2dgs_scene.py \\
-    --scene-dir data/round1/phase1/public_set/HCM0181 \\
-    --output-dir outputs/2dgs_10k --iterations 10000
-```
+# Train/render Mip-Splatting
+python src/method_runners/run_mip_splatting_scene.py \
+    --scene-dir data/round1/phase1/public_set/HCM0181 \
+    --output-dir outputs/smoke/mip_10k_r4_k01 --iterations 10000 --kernel-size 0.1
 
-### 6. Evaluate on public set
-```bash
-python scripts/evaluate_public.py \\
-    --public-root data/round1/phase1/public_set \\
-    --pred-dir outputs/gs_10k \\
+# Train/render 2DGS
+python src/method_runners/run_2dgs_scene.py \
+    --scene-dir data/round1/phase1/public_set/HCM0181 \
+    --output-dir outputs/smoke/2dgs_10k_default --iterations 10000
+
+# Evaluate public set
+python eval/evaluate_public.py \
+    --public-root data/round1/phase1/public_set \
+    --pred-dir outputs/public/3dgs_f2_10k \
     --with-lpips
+
+# Verify and zip submission
+python verify/verify_submission.py \
+    --split-root data/round1/phase1/private_set1 \
+    --submission-dir outputs/private/3dgs_f2_10k
+
+python utils/make_submission_zip.py \
+    --submission-dir outputs/private/3dgs_f2_10k \
+    --zip submissions/submission_3dgs_f2_10k.zip \
+    --overwrite
 ```
 
-### 7. Verify and zip submission
-```bash
-python scripts/verify_submission.py \\
-    --split-root data/round1/phase1/private_set1 \\
-    --submission-dir outputs/gs_10k
+## Experiment Workflow
 
-cd outputs/gs_10k && zip -r ../../../submissions/submission_gs_10k.zip ./* && cd -
+- `configs/gs_runs.json`: manifest dùng chung cho smoke, public benchmark và private render.
+- `runs/commands/10_smoke.sh`: chạy thử một public scene duy nhất để bắt lỗi command/dependency/runtime. Không dùng kết quả này để xếp hạng phương pháp.
+- `runs/commands/20_public.sh`: benchmark chuẩn; mỗi phương pháp/config phải chạy đủ toàn bộ public scenes.
+- `runs/commands/21_eval.sh`: đánh giá toàn bộ public scenes và ghi metrics vào `reports/experiments/eval/public/`.
+- `runs/commands/30_private.sh`: render private bằng đúng một run đã chọn từ public benchmark.
+- Render outputs dùng layout `outputs/smoke/<run_id>`, `outputs/public/<run_id>`, `outputs/private/<run_id>`.
+- Chỉ zip từ `outputs/private/<run_id>` sang `submissions/` sau khi folder private đã verify pass.
+- Selection/ranking outputs phải ghi vào `reports/experiments/selections/`.
 
-python scripts/verify_zip.py \\
-    --split-root data/round1/phase1/private_set1 \\
-    --zip submissions/submission_gs_10k.zip
+## Tóm Tắt Bài Toán
+
+Mục tiêu là tái dựng cấu trúc 3D ngầm định của một scene từ ảnh đa góc nhìn và sinh ảnh RGB tại các camera pose chưa từng xuất hiện trong dữ liệu train. Bài toán thuộc nhóm Computer Vision, 3D Vision, Neural Rendering, Novel View Synthesis và Digital Twin.
+
+Mỗi scene gồm ảnh train, camera intrinsics/poses và sparse reconstruction từ COLMAP. Mô hình cần render ảnh đúng hình học, đúng vị trí thiết bị và có chất lượng hình ảnh chân thực.
+
+## Cấu Trúc Dữ Liệu Scene
+
+```text
+scene/
+├── train/
+│   ├── images/
+│   └── sparse/0/
+│       ├── cameras.bin
+│       ├── images.bin
+│       └── points3D.bin
+└── test/
+    └── test_poses.csv
 ```
 
-### 8. Best-single-method automation (no GPU execution by default)
+`test_poses.csv` có format:
 
-To compare `3dgs`, `mip`, and `2dgs` and pick one global best method, generate
-the command scripts first:
-
-```bash
-python scripts/generate_experiment_commands.py \
-    --config configs/best_single_method_plan.json \
-    --out-dir reports/experiments/commands
+```csv
+image_name,qw,qx,qy,qz,tx,ty,tz,fx,fy,cx,cy,width,height
 ```
 
-The generator writes scripts under `reports/experiments/commands`:
+Các trường chính:
 
-- `00_preflight.sh`
-- `01_generate_masks.sh`
-- `10_quick_train.sh`, `11_quick_eval.sh`
-- `20_public_train.sh`, `21_public_eval.sh`
-- `22_select_best_single_method.sh`
+- `image_name`: tên ảnh cần sinh.
+- `qw`, `qx`, `qy`, `qz`: quaternion rotation theo COLMAP.
+- `tx`, `ty`, `tz`: camera translation.
+- `fx`, `fy`, `cx`, `cy`: camera intrinsics.
+- `width`, `height`: kích thước ảnh đầu ra.
 
-After public eval JSON files exist, choose the winner and render private once:
+## Submission
 
-```bash
-python scripts/select_best_single_method.py \
-    --config configs/best_single_method_plan.json \
-    --eval-dir reports/experiments/eval/public \
-    --json-out reports/experiments/final_selection.json
+Submission là file ZIP chứa đầy đủ ảnh render cho toàn bộ scene/test poses:
 
-python scripts/generate_experiment_commands.py \
-    --config configs/best_single_method_plan.json \
-    --selected-experiment <experiment_id>
+```text
+submission.zip
+├── scene_001/
+│   ├── 0001.png
+│   └── ...
+├── scene_002/
+│   ├── 0001.png
+│   └── ...
+└── ...
 ```
 
-The generated `30_private_best_single_method.sh` will run:
+Yêu cầu chính:
 
-- rendering private set with selected method/config,
-- `verify_submission.py`,
-- `make_submission_zip.py`,
-- `verify_zip.py`.
+- Đúng tên scene và tên file ảnh theo `test_poses.csv`.
+- Đúng kích thước `width`, `height`.
+- Không thiếu hoặc thừa ảnh so với danh sách test poses.
 
 ## Metrics
 
+Điểm được tính từ LPIPS, SSIM và PSNR chuẩn hóa:
+
 ```text
-Score = 0.4 * (1 - LPIPS) + 0.3 * SSIM + 0.3 * PSNR / 30
+Score = 0.4 * (1 - LPIPS) + 0.3 * SSIM + 0.3 * PSNR_norm
+PSNR_norm = clamp(PSNR / PSNR_max, 0, 1)
 ```
 
-- LPIPS — perceptual distance, lower is better (weight 0.4)
-- SSIM — structural similarity, higher is better (weight 0.3)
-- PSNR/30 — normalized PSNR, higher is better (weight 0.3)
-
-## Configuration presets
-
-All scripts accept CLI flags. Defaults are defined in
-`src/var2026_bts/configs/defaults.py`. Override at the CLI:
-
-```bash
-python scripts/train_gs_scene.py \\
-    --scene-dir <path> --output-dir <path> \\
-    --steps 20000 --lambda-l1 0.8 --lambda-ssim 0.2 --lambda-lpips 0.0 \\
-    --mask-dir workspace/sam3_masks --mask-boost 3 --mask-dilate 1
-```
-
-## Notes
-
-- Outputs are full-resolution 1320x989 PNGs.
-- Submission ZIP must follow `submissions/<name>.zip` with `scene/<image>.png`.
-- SAM mask weighting boosts foreground (BTS/tower) L1 loss only; rendered
-  outputs are NOT masked, since the leaderboard scores the whole image.
-- `third_party/` is gitignored; clone submodules if needed.
+- LPIPS càng thấp càng tốt.
+- SSIM càng cao càng tốt.
+- PSNR càng cao càng tốt.
+- `PSNR_max` mặc định là `50.0`, khớp thang leaderboard private đã quan sát.

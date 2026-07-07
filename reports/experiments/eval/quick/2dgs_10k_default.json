@@ -135,5 +135,5 @@
   "mean_ssim": null,
   "mean_lpips": null,
   "mean_score": null,
-  "psnr_max": 30.0
+  "psnr_max": 50.0
 }
