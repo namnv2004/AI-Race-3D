@@ -11,7 +11,6 @@ from pathlib import Path
 
 from PIL import Image
 
-
 JPEG_EXTENSIONS = {".jpg", ".jpeg"}
 
 
@@ -34,7 +33,9 @@ def save_jpeg(source: Path, dest: Path, quality: int) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Recompress JPEG submission images under a target MiB budget.")
+    parser = argparse.ArgumentParser(
+        description="Recompress JPEG submission images under a target MiB budget."
+    )
     parser.add_argument("--source-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--target-mib", type=float, required=True)
@@ -52,7 +53,11 @@ def main() -> None:
             raise SystemExit(f"Output directory exists: {args.output_dir}. Pass --overwrite to replace it.")
         shutil.rmtree(args.output_dir)
 
-    files = sorted(path for path in args.source_dir.rglob("*") if path.is_file() and path.suffix.lower() in JPEG_EXTENSIONS)
+    files = sorted(
+        path
+        for path in args.source_dir.rglob("*")
+        if path.is_file() and path.suffix.lower() in JPEG_EXTENSIONS
+    )
     if not files:
         raise SystemExit(f"No JPEG files found under {args.source_dir}")
 

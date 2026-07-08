@@ -114,7 +114,11 @@ def generate_scene_masks(
     args: argparse.Namespace,
 ) -> int:
     images_dir = scene_dir / "train" / "images"
-    image_paths = [path for path in sorted(images_dir.iterdir()) if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS]
+    image_paths = [
+        path
+        for path in sorted(images_dir.iterdir())
+        if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
+    ]
     if args.max_images > 0:
         image_paths = image_paths[: args.max_images]
     if not image_paths:
@@ -143,11 +147,20 @@ def generate_scene_masks(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate SAM 3.x masks for BTS/tower region in train images.")
+    parser = argparse.ArgumentParser(
+        description="Generate SAM 3.x masks for BTS/tower region in train images."
+    )
     parser.add_argument("--scene-dir", type=Path, default=None)
-    parser.add_argument("--split-root", type=Path, default=None, help="Run all scenes under this public/private root.")
+    parser.add_argument(
+        "--split-root", type=Path, default=None, help="Run all scenes under this public/private root."
+    )
     parser.add_argument("--scenes", nargs="*", default=None)
-    parser.add_argument("--output-dir", type=Path, default=None, help="Single-scene output dir, or root dir when --split-root is used.")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Single-scene output dir, or root dir when --split-root is used.",
+    )
     parser.add_argument("--model", default=DEFAULT_SAM_MODEL)
     parser.add_argument("--prompt", default=DEFAULT_SAM_PROMPT)
     parser.add_argument("--threshold", type=float, default=DEFAULT_SAM_THRESHOLD)

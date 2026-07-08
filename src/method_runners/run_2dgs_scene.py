@@ -86,15 +86,24 @@ def run_train(args: argparse.Namespace, source_path: Path, model_path: Path) -> 
     command = [
         sys.executable,
         "train.py",
-        "-s", str(source_path.resolve()),
-        "-m", str(model_path.resolve()),
-        "--port", str(args.port),
-        "--iterations", str(args.iterations),
-        "--lambda_dssim", str(args.lambda_dssim),
-        "--lambda_dist", str(args.lambda_dist),
-        "--lambda_normal", str(args.lambda_normal),
-        "--densify_grad_threshold", str(args.densify_grad_threshold),
-        "--densify_until_iter", str(args.densify_until_iter),
+        "-s",
+        str(source_path.resolve()),
+        "-m",
+        str(model_path.resolve()),
+        "--port",
+        str(args.port),
+        "--iterations",
+        str(args.iterations),
+        "--lambda_dssim",
+        str(args.lambda_dssim),
+        "--lambda_dist",
+        str(args.lambda_dist),
+        "--lambda_normal",
+        str(args.lambda_normal),
+        "--densify_grad_threshold",
+        str(args.densify_grad_threshold),
+        "--densify_until_iter",
+        str(args.densify_until_iter),
     ]
     if args.resolution > 0:
         command.extend(["--resolution", str(args.resolution)])
@@ -152,7 +161,9 @@ def make_2dgs_camera(camera: TestCamera, index: int, data_device: str):
     )
 
 
-def render_test_poses(args: argparse.Namespace, model_path: Path, scene_dir: Path, output_scene_dir: Path) -> None:
+def render_test_poses(
+    args: argparse.Namespace, model_path: Path, scene_dir: Path, output_scene_dir: Path
+) -> None:
     sys.path.insert(0, str(args.twodgs_root.resolve()))
     from gaussian_renderer import GaussianModel, render
 
@@ -163,7 +174,9 @@ def render_test_poses(args: argparse.Namespace, model_path: Path, scene_dir: Pat
 
     gaussians = GaussianModel(3)
     gaussians.load_ply(str(ply_path))
-    pipeline = SimpleNamespace(convert_SHs_python=False, compute_cov3D_python=False, debug=False, depth_ratio=0.0)
+    pipeline = SimpleNamespace(
+        convert_SHs_python=False, compute_cov3D_python=False, debug=False, depth_ratio=0.0
+    )
     background = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32, device="cuda")
     test_cameras = parse_test_poses_csv(scene_dir / "test" / "test_poses.csv", render_scale=args.render_scale)
     if args.max_targets > 0:
@@ -186,7 +199,12 @@ def main() -> None:
     parser.add_argument("--twodgs-root", type=Path, default=Path("third_party/2d-gaussian-splatting"))
     parser.add_argument("--model-root", type=Path, default=Path("checkpoints/2dgs"))
     parser.add_argument("--iterations", type=int, default=DEFAULT_2DGS_ITERATIONS)
-    parser.add_argument("--resolution", type=int, default=DEFAULT_2DGS_RESOLUTION, help="Resolution override; -1 keeps native COLMAP resolution.")
+    parser.add_argument(
+        "--resolution",
+        type=int,
+        default=DEFAULT_2DGS_RESOLUTION,
+        help="Resolution override; -1 keeps native COLMAP resolution.",
+    )
     parser.add_argument("--render-scale", type=float, default=DEFAULT_RENDER_SCALE)
     parser.add_argument("--port", type=int, default=6009)
     parser.add_argument("--lambda-dssim", type=float, default=DEFAULT_2DGS_LAMBDA_DSSIM)
@@ -212,11 +230,7 @@ def main() -> None:
     model_path = args.model_root / scene_name
     output_scene_dir = args.output_dir / scene_name
 
-    train_source_path = (
-        args.scene_dir / "train"
-        if (args.scene_dir / "train").is_dir()
-        else args.scene_dir
-    )
+    train_source_path = args.scene_dir / "train" if (args.scene_dir / "train").is_dir() else args.scene_dir
 
     if not args.skip_train:
         require_2dgs_dependencies(args.twodgs_root)

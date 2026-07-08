@@ -164,7 +164,9 @@ def main() -> None:
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
 
-    scenes = [item for item in sorted(args.split_root.iterdir()) if (item / "test" / "test_poses.csv").exists()]
+    scenes = [
+        item for item in sorted(args.split_root.iterdir()) if (item / "test" / "test_poses.csv").exists()
+    ]
     if not scenes:
         raise SystemExit(f"No scenes with test/test_poses.csv found in {args.split_root}")
 

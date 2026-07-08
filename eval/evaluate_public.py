@@ -76,12 +76,16 @@ def evaluate_scene(
         if pred.shape == gt.shape and np.array_equal(pred, gt):
             exact_matches.append(name)
         if pred.shape != gt.shape:
-            pred = np.asarray(Image.fromarray(pred).resize((gt.shape[1], gt.shape[0]), Image.Resampling.LANCZOS))
+            pred = np.asarray(
+                Image.fromarray(pred).resize((gt.shape[1], gt.shape[0]), Image.Resampling.LANCZOS)
+            )
         psnr = float(peak_signal_noise_ratio(gt, pred, data_range=255))
         ssim = float(structural_similarity(gt, pred, channel_axis=2, data_range=255))
         if lpips_model is not None:
             with torch.inference_mode():
-                lpips_value = float(lpips_model(to_lpips_tensor(pred, lpips_device), to_lpips_tensor(gt, lpips_device)).item())
+                lpips_value = float(
+                    lpips_model(to_lpips_tensor(pred, lpips_device), to_lpips_tensor(gt, lpips_device)).item()
+                )
         else:
             lpips_value = float("nan")
         psnr_norm = float(np.clip(psnr / psnr_max, 0.0, 1.0))
@@ -113,13 +117,21 @@ def evaluate_scene(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate predictions on public_set using PSNR, SSIM, LPIPS.")
+    parser = argparse.ArgumentParser(
+        description="Evaluate predictions on public_set using PSNR, SSIM, LPIPS."
+    )
     parser.add_argument("--public-root", type=Path, default=Path("data/round1/phase1/public_set"))
     parser.add_argument("--pred-dir", type=Path, required=True)
     parser.add_argument("--limit-per-scene", type=int, default=0)
     parser.add_argument("--scenes", nargs="*", default=None, help="Optional scene names to evaluate.")
-    parser.add_argument("--only-existing", action="store_true", help="Only evaluate scenes present in pred-dir.")
-    parser.add_argument("--allow-missing", action="store_true", help="Allow missing prediction/GT files instead of failing after writing the summary.")
+    parser.add_argument(
+        "--only-existing", action="store_true", help="Only evaluate scenes present in pred-dir."
+    )
+    parser.add_argument(
+        "--allow-missing",
+        action="store_true",
+        help="Allow missing prediction/GT files instead of failing after writing the summary.",
+    )
     parser.add_argument("--with-lpips", action="store_true", help="Compute LPIPS and final Score.")
     parser.add_argument("--lpips-net", default="alex", choices=["alex", "vgg", "squeeze"])
     parser.add_argument("--lpips-device", default="cuda")
@@ -162,7 +174,9 @@ def main() -> None:
         "psnr_max": args.psnr_max,
         "complete": not incomplete,
         "incomplete_scenes": [str(item["scene"]) for item in incomplete],
-        "exact_match_scenes": [str(item["scene"]) for item in results if item.get("exact_match_count", 0) > 0],
+        "exact_match_scenes": [
+            str(item["scene"]) for item in results if item.get("exact_match_count", 0) > 0
+        ],
         "score_formula": "0.4 * (1 - LPIPS) + 0.3 * SSIM + 0.3 * clamp(PSNR / psnr_max, 0, 1)",
     }
     text = json.dumps(summary, indent=2, ensure_ascii=False)

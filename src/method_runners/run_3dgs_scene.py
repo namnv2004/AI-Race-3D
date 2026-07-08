@@ -71,13 +71,16 @@ from scene_parsers import (
 
 def _init_lpips(net: str = "alex"):
     import lpips
+
     model = lpips.LPIPS(net=net).eval().cuda()
     for param in model.parameters():
         param.requires_grad_(False)
     return model
 
 
-def _lpips_inputs(pred_nhwc: torch.Tensor, target_nhwc: torch.Tensor, resize: int) -> tuple[torch.Tensor, torch.Tensor]:
+def _lpips_inputs(
+    pred_nhwc: torch.Tensor, target_nhwc: torch.Tensor, resize: int
+) -> tuple[torch.Tensor, torch.Tensor]:
     pred = pred_nhwc.permute(0, 3, 1, 2)
     target = target_nhwc.permute(0, 3, 1, 2)
     if resize > 0:
@@ -116,7 +119,9 @@ def init_splats(
     points = torch.from_numpy(points_np).float()
     colors = torch.from_numpy(np.clip(colors_np, 1e-4, 1.0 - 1e-4)).float()
     n_neighbors = min(4, len(points))
-    distances, _ = NearestNeighbors(n_neighbors=n_neighbors, metric="euclidean").fit(points_np).kneighbors(points_np)
+    distances, _ = (
+        NearestNeighbors(n_neighbors=n_neighbors, metric="euclidean").fit(points_np).kneighbors(points_np)
+    )
     if n_neighbors > 1:
         dist_avg = torch.from_numpy(distances[:, 1:].mean(axis=1)).float()
     else:
@@ -136,7 +141,9 @@ def init_splats(
     ).to(device)
 
 
-def make_optimizers(splats: torch.nn.ParameterDict, scene_scale: float, batch_size: int) -> dict[str, torch.optim.Optimizer]:
+def make_optimizers(
+    splats: torch.nn.ParameterDict, scene_scale: float, batch_size: int
+) -> dict[str, torch.optim.Optimizer]:
     lrs = {
         "means": 1.6e-4 * scene_scale,
         "scales": 5e-3,
@@ -165,7 +172,9 @@ def ssim_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     sigma_x = F.avg_pool2d(pred_chw * pred_chw, 11, stride=1, padding=5) - mu_x * mu_x
     sigma_y = F.avg_pool2d(target_chw * target_chw, 11, stride=1, padding=5) - mu_y * mu_y
     sigma_xy = F.avg_pool2d(pred_chw * target_chw, 11, stride=1, padding=5) - mu_x * mu_y
-    ssim = ((2 * mu_x * mu_y + c1) * (2 * sigma_xy + c2)) / ((mu_x**2 + mu_y**2 + c1) * (sigma_x + sigma_y + c2))
+    ssim = ((2 * mu_x * mu_y + c1) * (2 * sigma_xy + c2)) / (
+        (mu_x**2 + mu_y**2 + c1) * (sigma_x + sigma_y + c2)
+    )
     return 1.0 - ssim.mean()
 
 
@@ -178,7 +187,10 @@ def train(
     lpips_fn=None,
 ) -> torch.nn.ParameterDict:
     device = args.device
-    images = [torch.from_numpy(resize_rgb(view.image_path, view.width, view.height)).float() / 255.0 for view in tqdm(views, desc="Loading train images")]
+    images = [
+        torch.from_numpy(resize_rgb(view.image_path, view.width, view.height)).float() / 255.0
+        for view in tqdm(views, desc="Loading train images")
+    ]
     mask_root = args.mask_dir if args.mask_dir is not None else None
     masks = [
         torch.from_numpy(
@@ -210,13 +222,17 @@ def train(
     )
     strategy.check_sanity(splats, optimizers)
     strategy_state = strategy.initialize_state(scene_scale=scene_scale)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizers["means"], gamma=0.01 ** (1.0 / max(args.steps, 1)))
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(
+        optimizers["means"], gamma=0.01 ** (1.0 / max(args.steps, 1))
+    )
 
     progress = tqdm(range(args.steps), desc="Training 3DGS")
     for step in progress:
         idx = random.randrange(len(views))
         target = images[idx].to(device, non_blocking=True).unsqueeze(0)
-        foreground_mask = masks[idx].to(device, non_blocking=True).unsqueeze(0) if args.mask_boost > 0 else None
+        foreground_mask = (
+            masks[idx].to(device, non_blocking=True).unsqueeze(0) if args.mask_boost > 0 else None
+        )
         render, _, info = rasterization(
             means=splats["means"],
             quats=splats["quats"],
@@ -256,7 +272,9 @@ def train(
 
 
 @torch.no_grad()
-def render_targets(scene_dir: Path, splats: torch.nn.ParameterDict, output_root: Path, args: argparse.Namespace) -> None:
+def render_targets(
+    scene_dir: Path, splats: torch.nn.ParameterDict, output_root: Path, args: argparse.Namespace
+) -> None:
     device = args.device
     test_cameras = parse_test_poses_csv(scene_dir / "test" / "test_poses.csv", render_scale=args.render_scale)
     if args.max_targets > 0:
@@ -289,7 +307,9 @@ def render_targets(scene_dir: Path, splats: torch.nn.ParameterDict, output_root:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Train a minimal 3DGS scene from COLMAP and render test poses.")
+    parser = argparse.ArgumentParser(
+        description="Train a minimal 3DGS scene from COLMAP and render test poses."
+    )
     parser.add_argument("--scene-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--factor", type=int, default=DEFAULT_GS_FACTOR)
@@ -302,8 +322,18 @@ def main() -> None:
     parser.add_argument("--lambda-lpips", type=float, default=DEFAULT_LAMBDA_LPIPS)
     parser.add_argument("--lpips-net", default="alex", choices=["alex", "vgg", "squeeze"])
     parser.add_argument("--lpips-resize", type=int, default=256)
-    parser.add_argument("--mask-dir", type=Path, default=None, help="Per-scene or root directory containing SAM masks named <image_stem>.png.")
-    parser.add_argument("--mask-boost", type=float, default=DEFAULT_MASK_BOOST, help="Additional L1 weight for foreground mask pixels; 0 disables mask weighting.")
+    parser.add_argument(
+        "--mask-dir",
+        type=Path,
+        default=None,
+        help="Per-scene or root directory containing SAM masks named <image_stem>.png.",
+    )
+    parser.add_argument(
+        "--mask-boost",
+        type=float,
+        default=DEFAULT_MASK_BOOST,
+        help="Additional L1 weight for foreground mask pixels; 0 disables mask weighting.",
+    )
     parser.add_argument("--mask-threshold", type=float, default=DEFAULT_MASK_THRESHOLD)
     parser.add_argument("--mask-dilate", type=int, default=DEFAULT_MASK_DILATE)
     parser.add_argument("--milestones", nargs="*", type=int, default=[])
@@ -322,14 +352,18 @@ def main() -> None:
     if (args.output_dir / args.scene_dir.name).exists() and args.overwrite:
         shutil.rmtree(args.output_dir / args.scene_dir.name)
     views, points, colors = parse_colmap_train_scene(args.scene_dir, args.factor)
-    print(f"scene={args.scene_dir.name} train_views={len(views)} sparse_points={len(points)} factor={args.factor}")
+    print(
+        f"scene={args.scene_dir.name} train_views={len(views)} sparse_points={len(points)} factor={args.factor}"
+    )
     lpips_fn = _init_lpips(args.lpips_net) if args.lambda_lpips > 0 else None
     args.milestones = sorted(set(iteration for iteration in args.milestones if 0 < iteration <= args.steps))
     splats = train(views, points, colors, args.scene_dir, args, lpips_fn=lpips_fn)
     render_targets(args.scene_dir, splats, args.output_dir, args)
     stats = {"scene": args.scene_dir.name, "train_views": len(views), "gaussians": int(len(splats["means"]))}
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    (args.output_dir / f"{args.scene_dir.name}_train_stats.json").write_text(json.dumps(stats, indent=2) + "\n", encoding="utf-8")
+    (args.output_dir / f"{args.scene_dir.name}_train_stats.json").write_text(
+        json.dumps(stats, indent=2) + "\n", encoding="utf-8"
+    )
     print(stats)
 
 

@@ -178,7 +178,14 @@ def generate_preflight(plan: dict[str, Any], out_dir: Path) -> Path:
     commands = [
         mkdir_command(root(plan, "reports")),
         mkdir_command(artifact_path(plan, "selection_dir", "public", "selection")),
-        shell_join([python_cmd(plan), "utils/inspect_dataset.py", "--json-out", str(root(plan, "reports") / "inspect_latest.json")]),
+        shell_join(
+            [
+                python_cmd(plan),
+                "utils/inspect_dataset.py",
+                "--json-out",
+                str(root(plan, "reports") / "inspect_latest.json"),
+            ]
+        ),
         shell_join([python_cmd(plan), "src/method_runners/run_3dgs_scene.py", "--help"]),
         shell_join([python_cmd(plan), "src/method_runners/run_mip_splatting_scene.py", "--help"]),
         shell_join([python_cmd(plan), "src/method_runners/run_2dgs_scene.py", "--help"]),
@@ -191,8 +198,26 @@ def generate_preflight(plan: dict[str, Any], out_dir: Path) -> Path:
 def generate_masks(plan: dict[str, Any], out_dir: Path) -> Path:
     path = out_dir / "01_generate_masks.sh"
     commands = [
-        shell_join([python_cmd(plan), "utils/generate_sam3_masks.py", "--split-root", root(plan, "public"), "--output-dir", root(plan, "masks")]),
-        shell_join([python_cmd(plan), "utils/generate_sam3_masks.py", "--split-root", root(plan, "private"), "--output-dir", root(plan, "masks")]),
+        shell_join(
+            [
+                python_cmd(plan),
+                "utils/generate_sam3_masks.py",
+                "--split-root",
+                root(plan, "public"),
+                "--output-dir",
+                root(plan, "masks"),
+            ]
+        ),
+        shell_join(
+            [
+                python_cmd(plan),
+                "utils/generate_sam3_masks.py",
+                "--split-root",
+                root(plan, "private"),
+                "--output-dir",
+                root(plan, "masks"),
+            ]
+        ),
     ]
     write_script(path, "Optional SAM mask generation for mask-weighted experiments", commands)
     return path
@@ -248,9 +273,37 @@ def generate_private(plan: dict[str, Any], out_dir: Path, selected_run: str) -> 
     commands.extend(
         [
             "",
-            shell_join([python_cmd(plan), "verify/verify_submission.py", "--split-root", root(plan, "private"), "--submission-dir", private_output_dir]),
-            shell_join([python_cmd(plan), "utils/make_submission_zip.py", "--submission-dir", private_output_dir, "--zip", zip_path, "--overwrite"]),
-            shell_join([python_cmd(plan), "verify/verify_zip.py", "--split-root", root(plan, "private"), "--zip", zip_path]),
+            shell_join(
+                [
+                    python_cmd(plan),
+                    "verify/verify_submission.py",
+                    "--split-root",
+                    root(plan, "private"),
+                    "--submission-dir",
+                    private_output_dir,
+                ]
+            ),
+            shell_join(
+                [
+                    python_cmd(plan),
+                    "utils/make_submission_zip.py",
+                    "--submission-dir",
+                    private_output_dir,
+                    "--zip",
+                    zip_path,
+                    "--overwrite",
+                ]
+            ),
+            shell_join(
+                [
+                    python_cmd(plan),
+                    "verify/verify_zip.py",
+                    "--split-root",
+                    root(plan, "private"),
+                    "--zip",
+                    zip_path,
+                ]
+            ),
         ]
     )
     write_script(path, "Render private set with exactly one selected run", commands)
@@ -261,7 +314,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Generate experiment command files without executing them.")
     parser.add_argument("--config", type=Path, default=Path("configs/gs_runs.json"))
     parser.add_argument("--out-dir", type=Path, default=Path("runs/commands"))
-    parser.add_argument("--selected-run", "--selected-experiment", dest="selected_run", default=None, help="Generate private render script for this run id.")
+    parser.add_argument(
+        "--selected-run",
+        "--selected-experiment",
+        dest="selected_run",
+        default=None,
+        help="Generate private render script for this run id.",
+    )
     args = parser.parse_args()
 
     plan = load_plan(args.config)

@@ -59,9 +59,21 @@ def qvec_to_rotmat(qvec: np.ndarray) -> np.ndarray:
     qw, qx, qy, qz = [float(v) for v in qvec / norm]
     return np.array(
         [
-            [1.0 - 2.0 * qy * qy - 2.0 * qz * qz, 2.0 * qx * qy - 2.0 * qz * qw, 2.0 * qx * qz + 2.0 * qy * qw],
-            [2.0 * qx * qy + 2.0 * qz * qw, 1.0 - 2.0 * qx * qx - 2.0 * qz * qz, 2.0 * qy * qz - 2.0 * qx * qw],
-            [2.0 * qx * qz - 2.0 * qy * qw, 2.0 * qy * qz + 2.0 * qx * qw, 1.0 - 2.0 * qx * qx - 2.0 * qy * qy],
+            [
+                1.0 - 2.0 * qy * qy - 2.0 * qz * qz,
+                2.0 * qx * qy - 2.0 * qz * qw,
+                2.0 * qx * qz + 2.0 * qy * qw,
+            ],
+            [
+                2.0 * qx * qy + 2.0 * qz * qw,
+                1.0 - 2.0 * qx * qx - 2.0 * qz * qz,
+                2.0 * qy * qz - 2.0 * qx * qw,
+            ],
+            [
+                2.0 * qx * qz - 2.0 * qy * qw,
+                2.0 * qy * qz + 2.0 * qx * qw,
+                1.0 - 2.0 * qx * qx - 2.0 * qy * qy,
+            ],
         ],
         dtype=np.float64,
     )
@@ -117,7 +129,9 @@ def collect_image_paths(images_dir: Path) -> dict[str, Path]:
     }
 
 
-def parse_colmap_train_scene(scene_dir: Path, factor: int = 1) -> tuple[list[TrainCamera], np.ndarray, np.ndarray]:
+def parse_colmap_train_scene(
+    scene_dir: Path, factor: int = 1
+) -> tuple[list[TrainCamera], np.ndarray, np.ndarray]:
     if factor < 1:
         raise ValueError("factor must be >= 1")
 
@@ -178,7 +192,11 @@ def test_camera_from_row(row: pd.Series, render_scale: float = 1.0) -> TestCamer
     render_width = max(2, int(round(width * render_scale)))
     render_height = max(2, int(round(height * render_scale)))
     K = np.array(
-        [[float(row["fx"]), 0.0, float(row["cx"])], [0.0, float(row["fy"]), float(row["cy"])], [0.0, 0.0, 1.0]],
+        [
+            [float(row["fx"]), 0.0, float(row["cx"])],
+            [0.0, float(row["fy"]), float(row["cy"])],
+            [0.0, 0.0, 1.0],
+        ],
         dtype=np.float64,
     )
     if render_scale != 1.0:
